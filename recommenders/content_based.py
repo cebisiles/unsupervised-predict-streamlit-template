@@ -39,6 +39,32 @@ movies = pd.read_csv('resources/data/movies.csv', sep = ',')
 ratings = pd.read_csv('resources/data/ratings.csv')
 movies.dropna(inplace=True)
 
+def extract_title(title):
+   year = title[len(title)-5:len(title)-1]
+   
+   # some movies do not have the info about year in the column title. So, we should take care of the case as well.
+   
+   if year.isnumeric():
+      title_no_year = title[:len(title)-7]
+      return title_no_year
+   else:
+      return title
+# the function to extract years
+def extract_year(title):
+   year = title[len(title)-5:len(title)-1]
+   # some movies do not have the info about year in the column title. So, we should take care of the case as well.
+   if year.isnumeric():
+      return int(year)
+   else:
+      return np.nan
+# change the column name from title to title_year
+movies.rename(columns={'title':'title_year'}, inplace=True) 
+# remove leading and ending whitespaces in title_year
+movies['title_year'] = movies['title_year'].apply(lambda x: x.strip()) 
+# create the columns for title and year
+movies['title'] = movies['title_year'].apply(extract_title) 
+movies['year'] = movies['title_year'].apply(extract_year) 
+
 def data_preprocessing(subset_size):
     """Prepare data for use within Content filtering algorithm.
 
@@ -53,8 +79,13 @@ def data_preprocessing(subset_size):
         Subset of movies selected for content-based filtering.
 
     """
+    #remove the movies without genre information and reset the index
+    movies = movies[~(movies['genres']=='(no genres listed)')].reset_index(drop=True)
     # Split genre data into individual words.
     movies['keyWords'] = movies['genres'].str.replace('|', ' ')
+    # change 'Sci-Fi' to 'SciFi' and 'Film-Noir' to 'Noir'
+    movies['genres'] = movies['genres'].str.replace('Sci-Fi','SciFi')
+    movies['genres'] = movies['genres'].str.replace('Film-Noir','Noir')
     # Subset of the data
     movies_subset = movies[:subset_size]
     return movies_subset
@@ -80,7 +111,7 @@ def content_model(movie_list,top_n=10):
     """
     # Initializing the empty list of recommended movies
     recommended_movies = []
-    data = data_preprocessing(27000)
+    data = data_preprocessing(2700)
     # Instantiating and generating the count matrix
     count_vec = CountVectorizer()
     count_matrix = count_vec.fit_transform(data['keyWords'])
@@ -99,7 +130,7 @@ def content_model(movie_list,top_n=10):
     score_series_2 = pd.Series(rank_2).sort_values(ascending = False)
     score_series_3 = pd.Series(rank_3).sort_values(ascending = False)
     # Getting the indexes of the 10 most similar movies
-    listings = score_series_1.append(score_series_1).append(score_series_3).sort_values(ascending = False)
+    listings = score_series_1.append(score_series_2).append(score_series_3).sort_values(ascending = False)
 
     # Store movie names
     recommended_movies = []
